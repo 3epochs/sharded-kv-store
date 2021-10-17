@@ -22,8 +22,41 @@ type ExampleReply struct {
 	Y int
 }
 
-// Add your RPC definitions here.
+type TaskType int
+const (
+	MapTask TaskType = 1
+	ReduceTask TaskType = 2
+)
 
+// Add your RPC definitions here.
+type Request struct {
+
+}
+
+type Response struct {
+	NMap int
+	NReduce int  // reduce task number, used for generating intermediate files
+	Type TaskType
+	FileName string
+	Number int
+}
+
+type TaskFinishReq struct {
+	Type TaskType
+	Number int
+}
+
+type TaskFinishResp struct {
+	Done bool
+}
+
+type JobDoneReq struct {
+
+}
+
+type JobDoneResp struct {
+	Done bool
+}
 
 // Cook up a unique-ish UNIX-domain socket name
 // in /var/tmp, for the master.
