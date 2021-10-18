@@ -2,13 +2,14 @@ package mr
 
 import (
 	"log"
+	"net"
+	"net/http"
+	"net/rpc"
+	"os"
 	"sync"
 	"time"
 )
-import "net"
-import "os"
-import "net/rpc"
-import "net/http"
+
 
 
 type Master struct {
@@ -17,18 +18,18 @@ type Master struct {
 	nReduce int
 	mutex sync.Mutex
 	mapTasksToAssign map[int]string  // map task number to filename
-	mapTasksAssigned map[int]MapTaskStatus  // map task number to status
+	mapTasksAssigned map[int]MapTaskInfo  // map task number to status
 
 	reduceTasksToAssign map[int]bool
-	reduceTasksAssigned map[int]ReduceTaskStatus
+	reduceTasksAssigned map[int]ReduceTaskInfo
 }
 
-type MapTaskStatus struct {
+type MapTaskInfo struct {
 	filename string
 	timeStamp int64
 }
 
-type ReduceTaskStatus struct {
+type ReduceTaskInfo struct {
 	timeStamp int64
 }
 
@@ -40,7 +41,6 @@ func (m *Master) AssignTask(req *Request, resp *Response) error {
 	resp.NReduce = m.nReduce
 	// map task
 	if len(m.mapTasksToAssign) > 0 || len(m.mapTasksAssigned) > 0 {
-		// check 10 sec limits
 		filename := ""
 		number := -1
 		if len(m.mapTasksToAssign) > 0 {
@@ -51,7 +51,7 @@ func (m *Master) AssignTask(req *Request, resp *Response) error {
 			}
 			if filename != "" && number != -1 {
 				delete(m.mapTasksToAssign, number)
-				status := MapTaskStatus{
+				status := MapTaskInfo{
 					filename: filename,
 					timeStamp: time.Now().Unix(),
 				}
@@ -82,7 +82,7 @@ func (m *Master) AssignTask(req *Request, resp *Response) error {
 			}
 			if number != -1 {
 				delete(m.reduceTasksToAssign, number)
-				status := ReduceTaskStatus{
+				status := ReduceTaskInfo{
 					timeStamp: time.Now().Unix(),
 				}
 				m.reduceTasksAssigned[number] = status

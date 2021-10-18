@@ -49,123 +49,114 @@ type fileEncoder struct {
 //
 func Worker(mapf func(string, string) []KeyValue,
 	reducef func(string, []string) string) {
-	doneReq := JobDoneReq{}
-	doneResp := JobDoneResp{}
-	call("Master.Done", doneReq, doneResp)
-	for ; !doneResp.Done;  {
-		// get task
-		req := Request{}
-		resp := Response{}
-		for success := call("Master.AssignTask", &req, &resp); !success || resp.Number == 0; {
-			if !success {
-				return
-			}
-			time.Sleep(time.Second)
-		}
-		finishReq := TaskFinishReq{}
-		finishResp := TaskFinishResp{}
-		// map
-		if resp.Type == MapTask {
-			// read file into mem
-			filename := resp.FileName
-			intermediate := []KeyValue{}
-			file, err := os.Open(filename)
-			if err != nil {
-				log.Fatalf("cannot open %v", filename)
-			}
-			content, err := ioutil.ReadAll(file)
-			if err != nil {
-				log.Fatalf("cannot read %v", filename)
-			}
-			file.Close()
-
-			kva := mapf(filename, string(content))
-			intermediate = append(intermediate, kva...)
-			// write intermediate file to local disk
-			// create files
-			prefix := fmt.Sprintf("mr-%d", resp.Number)
-			prefix += "-%d"
-			fileMap := make(map[string]*fileEncoder) // map filename to File
-			for i := 1; i <= resp.NReduce; i++ {
-				oname := fmt.Sprintf(prefix, i)
-				ofile, _ := os.Create(oname)
-				enc := json.NewEncoder(ofile)
-				fileMap[oname] = &fileEncoder{
-					file:    ofile,
-					encoder: enc,
-				}
-			}
-			// write file
-			for _, kv := range intermediate {
-				index := (ihash(kv.Key) % resp.NReduce) + 1
-				filename := fmt.Sprintf(prefix, index)
-				enc := fileMap[filename].encoder
-				enc.Encode(&kv)
-			}
-			// close file
-			for _, ofile := range fileMap {
-				ofile.file.Close()
-			}
-			// task done, notify master
-			finishReq.Type = MapTask
-			finishReq.Number = resp.Number
-		} else {
-			// read intermediate files into mem
-			reduceNum := resp.Number
-			kvs := []KeyValue{}
-			formatStr := "mr-%d-%d"
-			for i := 1; i <= resp.NMap; i++ {
-				filename := fmt.Sprintf(formatStr, i, reduceNum)
+	// get task
+	req := Request{}
+	resp := Response{}
+	success := call("Master.AssignTask", &req, &resp)
+	for ; success;  {
+		if resp.Type != 0 && resp.Number != 0 {
+			finishReq := TaskFinishReq{}
+			finishResp := TaskFinishResp{}
+			// map
+			if resp.Type == MapTask {
+				// read file into mem
+				filename := resp.FileName
+				intermediate := []KeyValue{}
 				file, err := os.Open(filename)
 				if err != nil {
 					log.Fatalf("cannot open %v", filename)
 				}
-				dec := json.NewDecoder(file)
-				for {
-					var kv KeyValue
-					if err := dec.Decode(&kv); err != nil {
-						break
-					}
-					kvs = append(kvs, kv)
+				content, err := ioutil.ReadAll(file)
+				if err != nil {
+					log.Fatalf("cannot read %v", filename)
 				}
 				file.Close()
-			}
-			sort.Sort(ByKey(kvs))
-			// output file
-			oname := fmt.Sprintf("mr-out-%d", reduceNum)
-			ofile, _ := os.Create(oname)
-			i := 0
-			for i < len(kvs) {
-				j := i + 1
-				for j < len(kvs) && kvs[j].Key == kvs[i].Key {
-					j++
-				}
-				values := []string{}
-				for k := i; k < j; k++ {
-					values = append(values, kvs[k].Value)
-				}
-				output := reducef(kvs[i].Key, values)
 
-				// this is the correct format for each line of Reduce output.
-				fmt.Fprintf(ofile, "%v %v\n", kvs[i].Key, output)
+				kva := mapf(filename, string(content))
+				intermediate = append(intermediate, kva...)
+				// write intermediate file to local disk
+				// create files
+				prefix := fmt.Sprintf("mr-%d", resp.Number)
+				prefix += "-%d"
+				fileMap := make(map[string]*fileEncoder) // map filename to File
+				for i := 1; i <= resp.NReduce; i++ {
+					oname := fmt.Sprintf(prefix, i)
+					ofile, _ := os.Create(oname)
+					enc := json.NewEncoder(ofile)
+					fileMap[oname] = &fileEncoder{
+						file:    ofile,
+						encoder: enc,
+					}
+				}
+				// write file
+				for _, kv := range intermediate {
+					index := (ihash(kv.Key) % resp.NReduce) + 1
+					filename := fmt.Sprintf(prefix, index)
+					enc := fileMap[filename].encoder
+					enc.Encode(&kv)
+				}
+				// close file
+				for _, ofile := range fileMap {
+					ofile.file.Close()
+				}
+				// task done, notify master
+				finishReq.Type = MapTask
+				finishReq.Number = resp.Number
+			} else {
+				// read intermediate files into mem
+				reduceNum := resp.Number
+				kvs := []KeyValue{}
+				formatStr := "mr-%d-%d"
+				for i := 1; i <= resp.NMap; i++ {
+					filename := fmt.Sprintf(formatStr, i, reduceNum)
+					file, err := os.Open(filename)
+					if err != nil {
+						log.Fatalf("cannot open %v", filename)
+					}
+					dec := json.NewDecoder(file)
+					for {
+						var kv KeyValue
+						if err := dec.Decode(&kv); err != nil {
+							break
+						}
+						kvs = append(kvs, kv)
+					}
+					file.Close()
+				}
+				sort.Sort(ByKey(kvs))
+				// output file
+				oname := fmt.Sprintf("mr-out-%d", reduceNum)
+				ofile, _ := os.Create(oname)
+				i := 0
+				for i < len(kvs) {
+					j := i + 1
+					for j < len(kvs) && kvs[j].Key == kvs[i].Key {
+						j++
+					}
+					values := []string{}
+					for k := i; k < j; k++ {
+						values = append(values, kvs[k].Value)
+					}
+					output := reducef(kvs[i].Key, values)
 
-				i = j
+					// this is the correct format for each line of Reduce output.
+					fmt.Fprintf(ofile, "%v %v\n", kvs[i].Key, output)
+
+					i = j
+				}
+				finishReq.Type = ReduceTask
+				finishReq.Number = reduceNum
 			}
-			finishReq.Type = ReduceTask
-			finishReq.Number = reduceNum
-		}
-		if finishReq.Type != 0 {
 			call("Master.WorkerFinishTask", finishReq, finishResp)
 			if finishResp.Done {
 				return
 			}
+		} else {
+			time.Sleep(time.Second)
 		}
-		call("Master.Done", doneReq, doneResp)
+		success = call("Master.AssignTask", &req, &resp)
 	}
 	return
-	// uncomment to send the Example RPC to the master.
-	// CallExample()
-
 }
 
 //

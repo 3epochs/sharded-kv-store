@@ -50,13 +50,13 @@ type TaskFinishResp struct {
 	Done bool
 }
 
-type JobDoneReq struct {
-
-}
-
-type JobDoneResp struct {
-	Done bool
-}
+//type JobDoneReq struct {
+//
+//}
+//
+//type JobDoneResp struct {
+//	Done bool
+//}
 
 // Cook up a unique-ish UNIX-domain socket name
 // in /var/tmp, for the master.
