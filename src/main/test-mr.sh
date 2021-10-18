@@ -32,7 +32,7 @@ failed_any=0
 
 # generate the correct output
 ../mrsequential ../../mrapps/wc.so ../pg*txt || exit 1
-sort mr-out-0 > mr-correct-wc.txt
+LC_ALL=C sort mr-out-0 > mr-correct-wc.txt
 rm -f mr-out*
 
 echo '***' Starting wc test.
@@ -56,7 +56,7 @@ wait
 # to exit when a job is completely finished, and not before,
 # that means the job has finished.
 
-sort mr-out* | grep . > mr-wc-all
+LC_ALL=C sort mr-out* | grep . > mr-wc-all
 if cmp mr-wc-all mr-correct-wc.txt
 then
   echo '---' wc test: PASS
@@ -74,7 +74,7 @@ rm -f mr-*
 
 # generate the correct output
 ../mrsequential ../../mrapps/indexer.so ../pg*txt || exit 1
-sort mr-out-0 > mr-correct-indexer.txt
+LC_ALL=C sort mr-out-0 > mr-correct-indexer.txt
 rm -f mr-out*
 
 echo '***' Starting indexer test.
@@ -86,7 +86,7 @@ sleep 1
 timeout -k 2s 180s ../mrworker ../../mrapps/indexer.so &
 timeout -k 2s 180s ../mrworker ../../mrapps/indexer.so
 
-sort mr-out* | grep . > mr-indexer-all
+LC_ALL=C sort mr-out* | grep . > mr-indexer-all
 if cmp mr-indexer-all mr-correct-indexer.txt
 then
   echo '---' indexer test: PASS
@@ -154,7 +154,7 @@ wait ; wait
 
 # generate the correct output
 ../mrsequential ../../mrapps/nocrash.so ../pg*txt || exit 1
-sort mr-out-0 > mr-correct-crash.txt
+LC_ALL=C sort mr-out-0 > mr-correct-crash.txt
 rm -f mr-out*
 
 echo '***' Starting crash test.
@@ -192,7 +192,7 @@ wait
 wait
 
 rm $SOCKNAME
-sort mr-out* | grep . > mr-crash-all
+LC_ALL=C sort mr-out* | grep . > mr-crash-all
 if cmp mr-crash-all mr-correct-crash.txt
 then
   echo '---' crash test: PASS

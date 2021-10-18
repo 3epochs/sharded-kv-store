@@ -64,11 +64,11 @@ func Worker(mapf func(string, string) []KeyValue,
 				intermediate := []KeyValue{}
 				file, err := os.Open(filename)
 				if err != nil {
-					log.Fatalf("cannot open %v", filename)
+					log.Fatalf("map phase cannot open %v", filename)
 				}
 				content, err := ioutil.ReadAll(file)
 				if err != nil {
-					log.Fatalf("cannot read %v", filename)
+					log.Fatalf("map phase cannot read %v", filename)
 				}
 				file.Close()
 
@@ -77,11 +77,13 @@ func Worker(mapf func(string, string) []KeyValue,
 				// write intermediate file to local disk
 				// create files
 				prefix := fmt.Sprintf("mr-%d", resp.Number)
+				// log.Printf("map resp.Number=%d", resp.Number)
 				prefix += "-%d"
 				fileMap := make(map[string]*fileEncoder) // map filename to File
 				for i := 1; i <= resp.NReduce; i++ {
 					oname := fmt.Sprintf(prefix, i)
 					ofile, _ := os.Create(oname)
+					// log.Println("create file: ", oname)
 					enc := json.NewEncoder(ofile)
 					fileMap[oname] = &fileEncoder{
 						file:    ofile,
@@ -105,13 +107,14 @@ func Worker(mapf func(string, string) []KeyValue,
 			} else {
 				// read intermediate files into mem
 				reduceNum := resp.Number
+				// log.Printf("reduce resp.Number=%d", resp.Number)
 				kvs := []KeyValue{}
 				formatStr := "mr-%d-%d"
 				for i := 1; i <= resp.NMap; i++ {
 					filename := fmt.Sprintf(formatStr, i, reduceNum)
 					file, err := os.Open(filename)
 					if err != nil {
-						log.Fatalf("cannot open %v", filename)
+						log.Fatalf("reduce phase cannot open %v", filename)
 					}
 					dec := json.NewDecoder(file)
 					for {

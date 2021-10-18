@@ -42,14 +42,14 @@ func (m *Master) AssignTask(req *Request, resp *Response) error {
 	// map task
 	if len(m.mapTasksToAssign) > 0 || len(m.mapTasksAssigned) > 0 {
 		filename := ""
-		number := -1
+		number := 0
 		if len(m.mapTasksToAssign) > 0 {
 			for key, val := range m.mapTasksToAssign {
 				number = key
 				filename = val
 				break
 			}
-			if filename != "" && number != -1 {
+			if filename != "" && number != 0 {
 				delete(m.mapTasksToAssign, number)
 				status := MapTaskInfo{
 					filename: filename,
@@ -74,13 +74,13 @@ func (m *Master) AssignTask(req *Request, resp *Response) error {
 	}
 	// reduce task
 	if len(m.reduceTasksToAssign) > 0 || len(m.reduceTasksAssigned) > 0 {
-		number := -1
+		number := 0
 		if len(m.reduceTasksToAssign) > 0 {
 			for idx, _ := range m.reduceTasksToAssign {
 				number = idx
 				break
 			}
-			if number != -1 {
+			if number != 0 {
 				delete(m.reduceTasksToAssign, number)
 				status := ReduceTaskInfo{
 					timeStamp: time.Now().Unix(),
@@ -179,7 +179,9 @@ func MakeMaster(files []string, nReduce int) *Master {
 		nMap: len(files),
 		nReduce: nReduce,
 		mapTasksToAssign: mapTasksToAssign,
+		mapTasksAssigned: make(map[int]MapTaskInfo),
 		reduceTasksToAssign: reduceTasksToAssign,
+		reduceTasksAssigned: make(map[int]ReduceTaskInfo),
 	}
 	m.server()
 	return &m
